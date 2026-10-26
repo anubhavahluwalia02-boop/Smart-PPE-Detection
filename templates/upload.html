@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block title %}Image Analysis | Smart PPE Compliance Detection{% endblock %}
+
+{% block content %}
+<div class="analysis-container">
+    <div class="page-heading">
+        <h2>Still Image Safety Compliance Analysis</h2>
+        <p>Upload site photos or security snapshots to perform instant PPE detection, bounding box overlay, and spatial association.</p>
+    </div>
+
+    <!-- Upload Form -->
+    <div class="upload-card">
+        <form method="POST" enctype="multipart/form-data" class="upload-form" id="uploadForm">
+            <div class="drop-zone" onclick="document.getElementById('imageFileInput').click()">
+                <div class="drop-icon">📁</div>
+                <div class="drop-title">Click to Select or Drop an Image File</div>
+                <div class="drop-sub">Supported formats: JPG, JPEG, PNG, WEBP (Max 16MB)</div>
+                <input type="file" name="image_file" id="imageFileInput" accept=".jpg,.jpeg,.png,.webp" style="display:none;" onchange="previewSelectedFile(this)">
+            </div>
+            
+            <div id="fileSelectionBar" class="file-selection-bar" style="display: none;">
+                <span class="file-name" id="selectedFileName">No file selected</span>
+                <button type="submit" class="btn-action btn-primary" id="btnAnalyze">
+                    <span>⚡ Run AI Compliance Analysis</span>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Results Display -->
+    {% if analyzed %}
+    <div class="results-section">
+        <div class="results-header">
+            <h3>Analysis Results for: <code>{{ original_filename }}</code></h3>
+            <div class="header-badges">
+                <span class="status-pill status-{{ result.frame_status.lower() }}">
+                    STATUS: {{ result.frame_status.replace('_', ' ') }}
+                </span>
+                <span class="count-pill">Total Workers: {{ result.total_workers }}</span>
+                <span class="count-pill">Raw Detections: {{ raw_count }}</span>
+            </div>
+        </div>
+
+        <div class="results-grid">
+            <!-- Annotated Preview -->
+            <div class="preview-panel">
+                <div class="img-wrapper">
+                    <img src="{{ annotated_url }}" alt="Annotated Result" class="annotated-image">
+                </div>
+                <div class="download-bar">
+                    <a href="{{ annotated_url }}" download="annotated_{{ original_filename }}" class="btn-action btn-outline">
+                        <span>💾 Download Annotated Image</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Worker Evaluation Breakdown -->
+            <div class="breakdown-panel">
+                <h4>Worker Compliance Breakdown</h4>
+                {% if result.workers %}
+                <div class="worker-cards-list">
+                    {% for worker in result.workers %}
+                    <div class="worker-card worker-{{ worker.status.lower() }}">
+                        <div class="worker-header">
+                            <span class="worker-id">Worker #{{ worker.worker_id }}</span>
+                            <span class="worker-badge badge-{{ worker.status.lower() }}">
+                                {{ worker.status.replace('_', ' ') }}
+                            </span>
+                        </div>
+                        
+                        <div class="worker-details">
+                            <div class="detail-row">
+                                <span class="d-label">Safety Helmet:</span>
+                                <span class="d-val {% if worker.helmet_detected %}text-green{% else %}text-red{% endif %}">
+                                    {{ '✔ DETECTED' if worker.helmet_detected else '✖ MISSING' }}
+                                </span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="d-label">Safety Vest:</span>
+                                <span class="d-val {% if worker.vest_detected %}text-green{% else %}text-red{% endif %}">
+                                    {{ '✔ DETECTED' if worker.vest_detected else '✖ MISSING' }}
+                                </span>
+                            </div>
+                            {% if worker.missing_ppe %}
+                            <div class="detail-row">
+                                <span class="d-label">Missing PPE:</span>
+                                <span class="d-val text-red font-bold">{{ worker.missing_ppe | join(', ') }}</span>
+                            </div>
+                            {% endif %}
+                            <div class="detail-row reason">
+                                <span class="d-label">Assessment:</span>
+                                <span class="d-val text-muted">{{ worker.status_reason }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="no-workers-found">
+                    <p>No persons detected in this image.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function previewSelectedFile(input) {
+        if (input.files && input.files[0]) {
+            const fileName = input.files[0].name;
+            document.getElementById('selectedFileName').textContent = "Selected: " + fileName;
+            document.getElementById('fileSelectionBar').style.display = 'flex';
+        }
+    }
+</script>
+{% endblock %}

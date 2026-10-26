@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Local database and generated data
+*.db
+*.sqlite
+*.sqlite3
+uploads/
+violations/
+evidence/
+*.log
+
+# Model weights and datasets
+*.pt
+*.onnx
+runs/
+datasets/
+
+# Editor and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+
+{% block title %}About Project & B.Tech Viva Guide | Smart PPE Compliance{% endblock %}
+
+{% block content %}
+<div class="about-container">
+    <div class="page-heading">
+        <h2>Smart PPE Compliance Detection System</h2>
+        <p>B.Tech Final Year Artificial Intelligence & Machine Learning Project Documentation & Viva Voce Guide</p>
+    </div>
+
+    <!-- Project Overview Card -->
+    <div class="doc-section">
+        <h3>1. Project Abstract & Objective</h3>
+        <p>
+            Workplace accidents in high-hazard industrial environments (construction sites, manufacturing facilities, chemical plants) 
+            are frequently caused by workers failing to wear mandatory Personal Protective Equipment (PPE).
+            This project implements an end-to-end, edge-ready computer vision system that monitors video streams in real-time, 
+            detects whether workers are wearing mandatory safety equipment (Hard Hats / Safety Helmets and High-Visibility Reflective Vests), 
+            associates items with individual workers using spatial anatomical matching, generates audit-ready violation evidence, 
+            and interfaces with microcontroller hardware (ESP32) to actuate physical alarm lights and buzzers.
+        </p>
+    </div>
+
+    <!-- Architectural Pipeline -->
+    <div class="doc-section">
+        <h3>2. System Architecture & Pipeline</h3>
+        <div class="arch-flow">
+            <div class="flow-step">
+                <span class="step-num">1</span>
+                <strong>Video Ingestion</strong>
+                <p>OpenCV VideoCapture / USB Webcam / RTSP CCTV Stream</p>
+            </div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step">
+                <span class="step-num">2</span>
+                <strong>YOLOv8 Detection</strong>
+                <p>Multi-class Bounding Box & Confidence Scores</p>
+            </div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step">
+                <span class="step-num">3</span>
+                <strong>Spatial Association</strong>
+                <p>Anatomical Intersection-over-Box (Head & Torso)</p>
+            </div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step">
+                <span class="step-num">4</span>
+                <strong>Compliance Engine</strong>
+                <p>Rules: Compliant, Helmet Missing, Vest Missing, Review</p>
+            </div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step">
+                <span class="step-num">5</span>
+                <strong>Evidence & Alerts</strong>
+                <p>Cooldown Snapshot, SQLite Log, ESP32 Serial Pulse</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Spatial Matching Algorithm Explanation -->
+    <div class="doc-section">
+        <h3>3. Spatial Association Algorithm (Avoiding Cross-Worker Assignment)</h3>
+        <p>
+            A common failure mode in naive multi-object detection is misassigning one worker's helmet to an adjacent worker.
+            Our spatial matching algorithm enforces anatomical containment:
+        </p>
+        <div class="code-block formula-box">
+            $$\text{Head Region: } [x_1, y_1 - 0.05 \cdot H, x_2, y_1 + 0.38 \cdot H]$$
+            $$\text{Torso Region: } [x_1, y_1 + 0.20 \cdot H, x_2, y_1 + 0.78 \cdot H]$$
+            $$\text{Intersection Ratio (IoB)} = \frac{\text{Area}(\text{PPE Box} \cap \text{Anatomical Region})}{\text{Area}(\text{PPE Box})} \ge 0.30$$
+        </div>
+        <p>
+            If a person is truncated (head clipped above frame boundary) or too small, the system safely classifies the state 
+            as <code>NEEDS_REVIEW</code> rather than generating false violation accusations.
+        </p>
+    </div>
+
+    <!-- ESP32 Arduino Sketch -->
+    <div class="doc-section">
+        <h3>4. ESP32 Microcontroller Integration & Arduino Code</h3>
+        <p>
+            The software communicates over USB Serial at 115,200 baud. Connect the following components to your ESP32:
+        </p>
+        <ul class="bullet-list">
+            <li><strong>Green LED:</strong> GPIO 18 (with 220&Omega; resistor) &rarr; Safe / Compliant status</li>
+            <li><strong>Red LED:</strong> GPIO 19 (with 220&Omega; resistor) &rarr; Violation alert</li>
+            <li><strong>Active Buzzer:</strong> GPIO 21 &rarr; Audible warning tone</li>
+            <li><strong>Ground (GND):</strong> Common ground rail</li>
+        </ul>
+
+        <div class="code-container">
+            <div class="code-title">Arduino C++ Sketch (<code>esp32_ppe_alarm.ino</code>):</div>
+            <pre class="code-block">
+// ESP32 Smart PPE Compliance Hardware Controller
+const int PIN_GREEN = 18;
+const int PIN_RED = 19;
+const int PIN_BUZZER = 21;
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(PIN_GREEN, OUTPUT);
+  pinMode(PIN_RED, OUTPUT);
+  pinMode(PIN_BUZZER, OUTPUT);
+  
+  // Power-on self test: flash LEDs
+  digitalWrite(PIN_GREEN, HIGH);
+  delay(200);
+  digitalWrite(PIN_GREEN, LOW);
+  digitalWrite(PIN_RED, HIGH);
+  delay(200);
+  digitalWrite(PIN_RED, LOW);
+}
+
+void loop() {
+  if (Serial.available()) {
+    String command = Serial.readStringUntil('\n');
+    command.trim();
+    
+    if (command == "STATE:COMPLIANT") {
+      digitalWrite(PIN_GREEN, HIGH);
+      digitalWrite(PIN_RED, LOW);
+      digitalWrite(PIN_BUZZER, LOW);
+    } 
+    else if (command.startsWith("STATE:VIOLATION")) {
+      digitalWrite(PIN_GREEN, LOW);
+      digitalWrite(PIN_RED, HIGH);
+      // Staccato alarm beep
+      digitalWrite(PIN_BUZZER, HIGH);
+      delay(150);
+      digitalWrite(PIN_BUZZER, LOW);
+    } 
+    else {
+      // Idle / Standby
+      digitalWrite(PIN_GREEN, LOW);
+      digitalWrite(PIN_RED, LOW);
+      digitalWrite(PIN_BUZZER, LOW);
+    }
+  }
+}
+            </pre>
+        </div>
+    </div>
+
+    <!-- B.Tech Viva Q&A -->
+    <div class="doc-section">
+        <h3>5. B.Tech Viva Voce Questions & Model Answers</h3>
+        
+        <div class="viva-qa">
+            <div class="viva-q">Q1: Why can't standard COCO-trained YOLO models be used for PPE compliance detection?</div>
+            <div class="viva-a">
+                <strong>Answer:</strong> The standard Microsoft COCO dataset only contains 80 generic classes (e.g. "person", "car", "dog"). It does NOT include specialized industrial PPE classes such as "helmet", "hard_hat", "safety_vest", or explicit "no_helmet" labels. Claiming a COCO model detects PPE is technically incorrect. A custom or fine-tuned YOLO model trained on construction safety datasets (e.g., Pictor-v3, SHWD, or Roboflow PPE datasets) is mandatory.
+            </div>
+        </div>
+
+        <div class="viva-qa">
+            <div class="viva-q">Q2: How does the system handle continuous video streams without filling disk space with redundant violation photos?</div>
+            <div class="viva-a">
+                <strong>Answer:</strong> An anti-flooding cooldown manager (<code>EvidenceManager</code>) enforces a configurable cooldown window (default 5.0 seconds) per violation category. If a worker continuously stands without a helmet for 60 seconds, only 1 snapshot is captured every 5 seconds rather than generating 1,800 duplicate images (30 FPS &times; 60s).
+            </div>
+        </div>
+
+        <div class="viva-qa">
+            <div class="viva-q">Q3: What evaluation metrics are used to measure PPE detector performance?</div>
+            <div class="viva-a">
+                <strong>Answer:</strong> We evaluate using Precision ($P = \frac{TP}{TP + FP}$), Recall ($R = \frac{TP}{TP + FN}$), and mean Average Precision (mAP@0.5 and mAP@0.5:0.95) across all bounding boxes. In safety systems, higher Recall for the "no_helmet" / "no_vest" class is prioritized to minimize False Negatives (unreported violations).
+            </div>
+        </div>
+
+        <div class="viva-qa">
+            <div class="viva-q">Q4: Why is SQLite chosen instead of complex client-server databases for this edge prototype?</div>
+            <div class="viva-a">
+                <strong>Answer:</strong> SQLite is serverless, zero-configuration, and stores the entire audit database in a single portable file (<code>ppe_violations.db</code>). It provides full ACID transaction guarantees without needing an external background daemon, making it optimal for local Windows deployments and edge microcomputers (e.g. Raspberry Pi / Jetson).
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,20 @@
+# Smart PPE Compliance Detection System - Core Dependencies
+# Tested with Python 3.9 - 3.11 on Windows, Linux, and macOS
+
+# Deep Learning & Object Detection
+ultralytics>=8.0.200
+
+# Computer Vision & Image Processing
+opencv-python>=4.8.0.76
+Pillow>=10.0.0
+numpy>=1.23.0
+
+# Web Framework & HTTP Server
+Flask>=2.3.0
+Werkzeug>=2.3.0
+
+# Microcontroller Hardware Communication (ESP32 / Arduino)
+pyserial>=3.5
+
+# Environment Configuration
+python-dotenv>=1.0.0

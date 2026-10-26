@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard | Smart PPE Compliance Detection{% endblock %}
+
+{% block content %}
+<div class="dashboard-grid">
+    <!-- Model Warning / Notice Banner if weights file not placed -->
+    {% if not model_status.model_loaded %}
+    <div class="model-notice-banner">
+        <div class="notice-icon">⚠️</div>
+        <div class="notice-text">
+            <strong>Model Status Notice:</strong> Local weights file <code>models/best.pt</code> is not loaded. 
+            The system is operating in diagnostic simulation mode. 
+            <a href="{{ url_for('settings') }}" class="notice-link">Configure Model & Weights &rarr;</a>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Metric KPI Cards -->
+    <div class="kpi-grid">
+        <div class="kpi-card border-green">
+            <div class="kpi-header">
+                <span class="kpi-title">Compliance Rate</span>
+                <span class="kpi-icon">🛡️</span>
+            </div>
+            <div class="kpi-value text-green">{{ compliance_rate }}%</div>
+            <div class="kpi-sub">Calculated from total inspected workers</div>
+        </div>
+
+        <div class="kpi-card border-blue">
+            <div class="kpi-header">
+                <span class="kpi-title">Total Violations</span>
+                <span class="kpi-icon">🚨</span>
+            </div>
+            <div class="kpi-value text-amber">{{ stats.total_violations }}</div>
+            <div class="kpi-sub">Logged in SQLite database</div>
+        </div>
+
+        <div class="kpi-card border-red">
+            <div class="kpi-header">
+                <span class="kpi-title">Helmet Violations</span>
+                <span class="kpi-icon">⛑️</span>
+            </div>
+            <div class="kpi-value text-red">{{ stats.helmet_violations }}</div>
+            <div class="kpi-sub">Missing safety helmet instances</div>
+        </div>
+
+        <div class="kpi-card border-orange">
+            <div class="kpi-header">
+                <span class="kpi-title">Vest Violations</span>
+                <span class="kpi-icon">🦺</span>
+            </div>
+            <div class="kpi-value text-orange">{{ stats.vest_violations }}</div>
+            <div class="kpi-sub">Missing high-visibility vest instances</div>
+        </div>
+    </div>
+
+    <!-- Quick Action / Live Status Bar -->
+    <div class="quick-status-panel">
+        <div class="live-indicator-pill">
+            <span class="live-dot pulse"></span>
+            <span>LIVE SYSTEM MONITOR: <strong>READY</strong></span>
+        </div>
+        <div class="quick-actions">
+            <a href="{{ url_for('live_detection') }}" class="btn-action btn-primary">
+                <span>📹 Launch Live Camera</span>
+            </a>
+            <a href="{{ url_for('upload_image') }}" class="btn-action btn-secondary">
+                <span>📷 Upload Snapshot</span>
+            </a>
+            <a href="{{ url_for('export_csv') }}" class="btn-action btn-outline">
+                <span>📥 Export CSV Log</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Dual Column: Recent Evidence + Violation Breakdown -->
+    <div class="dual-panel-grid">
+        <!-- Recent Evidence Snapshots -->
+        <div class="panel-card">
+            <div class="panel-header">
+                <h3>📸 Recent Evidence Snapshots</h3>
+                <a href="{{ url_for('history') }}" class="panel-link">View All History &rarr;</a>
+            </div>
+            <div class="panel-body">
+                {% if stats.recent_violations %}
+                    <div class="evidence-gallery">
+                        {% for record in stats.recent_violations %}
+                            <div class="evidence-thumb-card">
+                                <div class="thumb-frame">
+                                    {% if record.evidence_path %}
+                                        <img src="{{ record.evidence_path if record.evidence_path.startswith('/') else '/' + record.evidence_path }}" alt="Violation Evidence" loading="lazy">
+                                    {% else %}
+                                        <div class="no-img-placeholder">No Image</div>
+                                    {% endif %}
+                                    <span class="thumb-badge badge-{{ record.violation_type.lower() }}">
+                                        {{ record.violation_type.replace('_', ' ') }}
+                                    </span>
+                                </div>
+                                <div class="thumb-meta">
+                                    <span class="time">{{ record.timestamp }}</span>
+                                    <span class="missing">Missing: <strong>{{ record.missing_ppe }}</strong></span>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="empty-state">
+                        <span class="empty-icon">✅</span>
+                        <p>No safety violations logged yet. Clean workplace environment!</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- System Specifications & Hardware Connectivity -->
+        <div class="panel-card">
+            <div class="panel-header">
+                <h3>⚡ Subsystem Connectivity</h3>
+            </div>
+            <div class="panel-body specs-list">
+                <div class="spec-row">
+                    <span class="spec-label">YOLO Inference Engine:</span>
+                    <span class="spec-val">
+                        {% if model_status.model_loaded %}
+                            <span class="text-green font-bold">● Ultralytics YOLO Active</span>
+                        {% else %}
+                            <span class="text-amber font-bold">● Heuristic / Simulation Mode</span>
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="spec-row">
+                    <span class="spec-label">Target Mandatory PPE:</span>
+                    <span class="spec-val">Hard Hat (Helmet) + Safety Vest</span>
+                </div>
+                <div class="spec-row">
+                    <span class="spec-label">Spatial Matching Algorithm:</span>
+                    <span class="spec-val">Anatomical Head (38%) + Torso (20-78%) IoB</span>
+                </div>
+                <div class="spec-row">
+                    <span class="spec-label">Violation Cooldown:</span>
+                    <span class="spec-val">5.0 seconds (Anti-flooding protection)</span>
+                </div>
+                <div class="spec-row">
+                    <span class="spec-label">SQLite Storage:</span>
+                    <span class="spec-val text-green">● Connected (<code>ppe_violations.db</code>)</span>
+                </div>
+                <div class="spec-row">
+                    <span class="spec-label">ESP32 Hardware Alert Interface:</span>
+                    <span class="spec-val">
+                        {% if hw_status.connected %}
+                            <span class="text-green font-bold">● Online on {{ hw_status.port }} ({{ hw_status.baud }} baud)</span>
+                        {% else %}
+                            <span class="text-muted">○ Standby (Optional USB Port {{ hw_status.port }})</span>
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

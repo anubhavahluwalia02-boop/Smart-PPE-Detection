@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block title %}Violation History | Smart PPE Compliance Detection{% endblock %}
+
+{% block content %}
+<div class="history-container">
+    <div class="page-heading">
+        <div class="heading-left">
+            <h2>Workplace Safety Violation Audit Log</h2>
+            <p>Persistent SQLite historical audit trail with evidence snapshots and violation categorization.</p>
+        </div>
+        <div class="heading-right">
+            <a href="{{ url_for('export_csv') }}" class="btn-action btn-outline">
+                <span>📥 Export Full Log as CSV</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Filter & Search Bar -->
+    <div class="filter-bar">
+        <form method="GET" action="{{ url_for('history') }}" class="filter-form">
+            <div class="filter-group">
+                <label>Filter Violation Type:</label>
+                <select name="type" onchange="this.form.submit()" class="select-input">
+                    <option value="ALL" {% if current_filter == 'ALL' %}selected{% endif %}>All Incidents</option>
+                    <option value="HELMET_VIOLATION" {% if current_filter == 'HELMET_VIOLATION' %}selected{% endif %}>Helmet Violations</option>
+                    <option value="SAFETY_VEST_VIOLATION" {% if current_filter == 'SAFETY_VEST_VIOLATION' %}selected{% endif %}>Safety Vest Violations</option>
+                    <option value="MULTIPLE_VIOLATIONS" {% if current_filter == 'MULTIPLE_VIOLATIONS' %}selected{% endif %}>Multiple Violations</option>
+                    <option value="NEEDS_REVIEW" {% if current_filter == 'NEEDS_REVIEW' %}selected{% endif %}>Needs Review</option>
+                </select>
+            </div>
+
+            <div class="filter-group search-group">
+                <input type="text" name="q" placeholder="Search missing PPE, source, or notes..." value="{{ search_query }}" class="search-input">
+                <button type="submit" class="btn-action btn-secondary">
+                    <span>🔍 Search</span>
+                </button>
+                {% if search_query or current_filter != 'ALL' %}
+                <a href="{{ url_for('history') }}" class="btn-clear-filter">Reset Filters</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
+    <!-- Records Table -->
+    <div class="table-container">
+        {% if records %}
+        <table class="industrial-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Date & Time</th>
+                    <th>Violation Type</th>
+                    <th>Missing PPE</th>
+                    <th>Confidence</th>
+                    <th>Source</th>
+                    <th>Evidence Image</th>
+                    <th>Notes</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in records %}
+                <tr>
+                    <td class="font-mono">#{{ r.id }}</td>
+                    <td class="font-mono text-muted">{{ r.timestamp }}</td>
+                    <td>
+                        <span class="badge-pill badge-{{ r.violation_type.lower() }}">
+                            {{ r.violation_type.replace('_', ' ') }}
+                        </span>
+                    </td>
+                    <td class="text-red font-bold">{{ r.missing_ppe }}</td>
+                    <td class="font-mono">{{ (r.confidence * 100) | round(1) }}%</td>
+                    <td>{{ r.source }}</td>
+                    <td>
+                        {% if r.evidence_path %}
+                        <a href="javascript:void(0)" onclick="openModalImage('{{ r.evidence_path if r.evidence_path.startswith('/') else '/' + r.evidence_path }}', 'Record #{{ r.id }}')">
+                            <img src="{{ r.evidence_path if r.evidence_path.startswith('/') else '/' + r.evidence_path }}" alt="Evidence" class="table-thumb">
+                        </a>
+                        {% else %}
+                        <span class="text-muted">No Snapshot</span>
+                        {% endif %}
+                    </td>
+                    <td class="notes-col">{{ r.notes or '-' }}</td>
+                    <td>
+                        <form method="POST" action="{{ url_for('delete_record', record_id=r.id) }}" onsubmit="return confirm('Delete this record?')">
+                            <button type="submit" class="btn-delete-row" title="Delete record">🗑️</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">
+            <span class="empty-icon">📂</span>
+            <h3>No Records Found</h3>
+            <p>No safety violations match the specified filter criteria.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal Lightbox for Evidence Images -->
+<div id="imageModal" class="image-modal" onclick="closeModalImage()">
+    <div class="modal-dialog" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <span id="modalTitle">Evidence Snapshot</span>
+            <button class="modal-close" onclick="closeModalImage()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <img id="modalImg" src="" alt="Violation Evidence Snapshot">
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function openModalImage(src, title) {
+        document.getElementById('modalImg').src = src;
+        document.getElementById('modalTitle').textContent = title + " - Annotated Evidence";
+        document.getElementById('imageModal').style.display = 'flex';
+    }
+    function closeModalImage() {
+        document.getElementById('imageModal').style.display = 'none';
+    }
+</script>
+{% endblock %}

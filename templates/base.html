@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Smart PPE Compliance Detection{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <!-- Google Fonts for Clean Industrial Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body class="industrial-theme">
+    <div class="app-layout">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="brand-badge">
+                    <span class="hazard-stripe"></span>
+                    <span class="brand-icon">🛡️</span>
+                </div>
+                <div class="brand-titles">
+                    <h2>SMART PPE</h2>
+                    <span class="brand-sub">SAFETY SYSTEM</span>
+                </div>
+            </div>
+
+            <nav class="nav-menu">
+                <a href="{{ url_for('dashboard') }}" class="nav-item {% if request.endpoint == 'dashboard' %}active{% endif %}">
+                    <span class="icon">📊</span>
+                    <span class="label">Dashboard</span>
+                </a>
+                <a href="{{ url_for('live_detection') }}" class="nav-item {% if request.endpoint == 'live_detection' %}active{% endif %}">
+                    <span class="icon">📹</span>
+                    <span class="label">Live Detection</span>
+                    <span class="pulse-indicator"></span>
+                </a>
+                <a href="{{ url_for('upload_image') }}" class="nav-item {% if request.endpoint == 'upload_image' %}active{% endif %}">
+                    <span class="icon">📷</span>
+                    <span class="label">Image Analysis</span>
+                </a>
+                <a href="{{ url_for('video_analysis') }}" class="nav-item {% if request.endpoint == 'video_analysis' %}active{% endif %}">
+                    <span class="icon">🎞️</span>
+                    <span class="label">Video Analysis</span>
+                </a>
+                <a href="{{ url_for('history') }}" class="nav-item {% if request.endpoint == 'history' %}active{% endif %}">
+                    <span class="icon">📋</span>
+                    <span class="label">Violation History</span>
+                </a>
+                <a href="{{ url_for('settings') }}" class="nav-item {% if request.endpoint == 'settings' %}active{% endif %}">
+                    <span class="icon">⚙️</span>
+                    <span class="label">Model Config</span>
+                </a>
+                <a href="{{ url_for('about') }}" class="nav-item {% if request.endpoint == 'about' %}active{% endif %}">
+                    <span class="icon">🎓</span>
+                    <span class="label">About & Viva</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <a href="{{ url_for('download_project') }}" class="btn-download-zip" download>
+                    <span class="icon">📦</span>
+                    <span>Download Project (.ZIP)</span>
+                </a>
+                <div class="system-status-indicator">
+                    <span class="status-dot online"></span>
+                    <span>System Core v1.0.0</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Top Industrial Bar -->
+            <header class="top-header">
+                <div class="header-title">
+                    <h1>SMART PPE COMPLIANCE DETECTION</h1>
+                    <p class="subtitle">AI-Powered Workplace Safety Monitoring System</p>
+                </div>
+                <div class="header-badges">
+                    <div class="badge-item badge-standard">
+                        <span class="badge-label">MANDATORY PPE:</span>
+                        <span class="badge-val">HELMET + VEST + GLOVES</span>
+                    </div>
+                    <div class="badge-item badge-status">
+                        <span class="badge-label">HARDWARE (ESP32):</span>
+                        <span class="badge-val" id="topHwStatus">STANDBY</span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Flash Alert Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flash-container">
+                        {% for category, message in messages %}
+                            <div class="flash-alert flash-{{ category }}">
+                                <span class="flash-icon">
+                                    {% if category == 'error' %}⚠️{% elif category == 'success' %}✅{% else %}ℹ️{% endif %}
+                                </span>
+                                <span class="flash-text">{{ message }}</span>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            <!-- Dynamic Page Content -->
+            <section class="content-body">
+                {% block content %}{% endblock %}
+            </section>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

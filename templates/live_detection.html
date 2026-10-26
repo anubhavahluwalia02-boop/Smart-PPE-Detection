@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+
+{% block title %}Live Camera Detection | Smart PPE Compliance{% endblock %}
+
+{% block content %}
+<div class="live-detection-container">
+    <div class="live-stream-header">
+        <div class="stream-title">
+            <h2>Real-Time Video Inference Feed</h2>
+            <p>Live YOLO Object Detection & Spatial PPE Compliance Monitoring</p>
+        </div>
+        <div class="stream-controls">
+            <button id="btnStartCamera" class="btn-ctrl btn-start" onclick="toggleCamera(true)">
+                <span>▶ Start Camera</span>
+            </button>
+            <button id="btnStopCamera" class="btn-ctrl btn-stop" onclick="toggleCamera(false)" style="display: none;">
+                <span>⏹ Stop Camera</span>
+            </button>
+            <button id="btnSoundToggle" class="btn-ctrl btn-sound" onclick="toggleSound()">
+                <span id="soundIcon">🔊</span>
+                <span id="soundLabel">Audio Alarm: ON</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Viewport + Live HUD -->
+    <div class="viewport-layout">
+        <div class="video-frame-container">
+            <!-- Video feed image -->
+            <img id="liveVideoFeed" src="{{ url_for('video_feed') }}" alt="Live PPE Detection Stream" class="video-feed-element">
+
+            <!-- Floating Top Compliance Badge -->
+            <div id="liveFloatingBadge" class="floating-compliance-badge badge-clear">
+                <span class="badge-dot"></span>
+                <span id="floatingStatusText">SYSTEM STANDBY</span>
+            </div>
+        </div>
+
+        <!-- Real-Time Metrics Sidebar -->
+        <div class="live-metrics-sidebar">
+            <div class="hud-panel">
+                <h3>Live Inspection HUD</h3>
+                
+                <div class="hud-metric">
+                    <span class="hud-label">Workers in Frame:</span>
+                    <span class="hud-val text-white" id="hudWorkers">0</span>
+                </div>
+
+                <div class="hud-metric">
+                    <span class="hud-label">Compliant Workers:</span>
+                    <span class="hud-val text-green" id="hudCompliant">0</span>
+                </div>
+
+                <div class="hud-metric">
+                    <span class="hud-label">Active Violations:</span>
+                    <span class="hud-val text-red" id="hudViolations">0</span>
+                </div>
+
+                <div class="hud-metric">
+                    <span class="hud-label">System State:</span>
+                    <span class="hud-val" id="hudState">STANDBY</span>
+                </div>
+            </div>
+
+            <div class="hud-panel rules-summary">
+                <h4>Compliance Criteria:</h4>
+                <ul class="rules-list">
+                    <li><span class="rule-icon check">✔</span> <strong>Helmet:</strong> Must cover cranial head region.</li>
+                    <li><span class="rule-icon check">✔</span> <strong>Vest:</strong> Must cover upper torso area.</li>
+                    <li><span class="rule-icon alert">!</span> <strong>Missing:</strong> Triggers red bounding box & audio alert.</li>
+                </ul>
+            </div>
+
+            <div class="hud-panel esp32-hud">
+                <h4>Hardware Signals (ESP32):</h4>
+                <div class="esp32-signal-row">
+                    <span class="pin-tag">PIN 18 (Green LED):</span>
+                    <span class="pin-status" id="pinGreen">OFF</span>
+                </div>
+                <div class="esp32-signal-row">
+                    <span class="pin-tag">PIN 19 (Red LED):</span>
+                    <span class="pin-status" id="pinRed">OFF</span>
+                </div>
+                <div class="esp32-signal-row">
+                    <span class="pin-tag">PIN 21 (Buzzer):</span>
+                    <span class="pin-status" id="pinBuzzer">OFF</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let cameraRunning = {{ 'true' if camera_running else 'false' }};
+    let audioAlarmEnabled = true;
+
+    function updateControlsUI() {
+        const btnStart = document.getElementById('btnStartCamera');
+        const btnStop = document.getElementById('btnStopCamera');
+        if (cameraRunning) {
+            btnStart.style.display = 'none';
+            btnStop.style.display = 'inline-flex';
+        } else {
+            btnStart.style.display = 'inline-flex';
+            btnStop.style.display = 'none';
+        }
+    }
+
+    async function toggleCamera(start) {
+        const endpoint = start ? '/api/camera/start' : '/api/camera/stop';
+        try {
+            const res = await fetch(endpoint, { method: 'POST' });
+            const data = await res.json();
+            if (data.success) {
+                cameraRunning = data.is_running;
+                updateControlsUI();
+                // refresh image src to reconnect stream if starting
+                if (start) {
+                    const img = document.getElementById('liveVideoFeed');
+                    img.src = '/video_feed?t=' + new Date().getTime();
+                }
+            } else if (data.error) {
+                alert("Camera Error: " + data.error);
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    function toggleSound() {
+        audioAlarmEnabled = !audioAlarmEnabled;
+        const icon = document.getElementById('soundIcon');
+        const label = document.getElementById('soundLabel');
+        if (audioAlarmEnabled) {
+            icon.textContent = '🔊';
+            label.textContent = 'Audio Alarm: ON';
+        } else {
+            icon.textContent = '🔇';
+            label.textContent = 'Audio Alarm: MUTED';
+        }
+    }
+
+    // Poll live status every 800ms
+    setInterval(async () => {
+        try {
+            const res = await fetch('/api/camera/status');
+            const data = await res.json();
+            if (data && data.state) {
+                document.getElementById('hudWorkers').textContent = data.state.total_workers;
+                document.getElementById('hudCompliant').textContent = data.state.compliant;
+                document.getElementById('hudViolations').textContent = data.state.violations;
+                document.getElementById('hudState').textContent = data.state.status;
+                
+                const badge = document.getElementById('liveFloatingBadge');
+                const text = document.getElementById('floatingStatusText');
+                text.textContent = data.state.status.replace(/_/g, ' ');
+
+                badge.className = 'floating-compliance-badge';
+                if (data.state.status === 'COMPLIANT') {
+                    badge.classList.add('badge-compliant');
+                    document.getElementById('pinGreen').textContent = 'HIGH (ON)';
+                    document.getElementById('pinGreen').className = 'pin-status on-green';
+                    document.getElementById('pinRed').textContent = 'LOW (OFF)';
+                    document.getElementById('pinRed').className = 'pin-status';
+                    document.getElementById('pinBuzzer').textContent = 'OFF';
+                    document.getElementById('pinBuzzer').className = 'pin-status';
+                } else if (data.state.status.includes('VIOLATION')) {
+                    badge.classList.add('badge-violation');
+                    document.getElementById('pinGreen').textContent = 'LOW (OFF)';
+                    document.getElementById('pinGreen').className = 'pin-status';
+                    document.getElementById('pinRed').textContent = 'HIGH (ON)';
+                    document.getElementById('pinRed').className = 'pin-status on-red';
+                    document.getElementById('pinBuzzer').textContent = 'PULSE (ALARM)';
+                    document.getElementById('pinBuzzer').className = 'pin-status on-red';
+
+                    if (audioAlarmEnabled) {
+                        playAlarmTone();
+                    }
+                } else {
+                    badge.classList.add('badge-clear');
+                    document.getElementById('pinGreen').textContent = 'OFF';
+                    document.getElementById('pinGreen').className = 'pin-status';
+                    document.getElementById('pinRed').textContent = 'OFF';
+                    document.getElementById('pinRed').className = 'pin-status';
+                    document.getElementById('pinBuzzer').textContent = 'OFF';
+                    document.getElementById('pinBuzzer').className = 'pin-status';
+                }
+            }
+        } catch (e) {
+            // Ignore polling errors during teardown
+        }
+    }, 800);
+
+    // Web Audio Synthesizer Beep
+    let audioCtx = null;
+    function playAlarmTone() {
+        try {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(880, audioCtx.currentTime); // 880 Hz
+            gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.15); // short 150ms beep
+        } catch (e) {
+            // Audio context requires user interaction
+        }
+    }
+
+    updateControlsUI();
+</script>
+{% endblock %}

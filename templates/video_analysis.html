@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}Video Analysis | Smart PPE Compliance Detection{% endblock %}
+
+{% block content %}
+<div class="analysis-container">
+    <div class="page-heading">
+        <h2>Industrial Recorded Video Inspection</h2>
+        <p>Process CCTV safety footage and pre-recorded videos to detect temporal PPE violations and extract audit logs.</p>
+    </div>
+
+    <!-- Upload Box -->
+    <div class="upload-card">
+        <form method="POST" enctype="multipart/form-data" class="upload-form" id="videoForm">
+            <div class="drop-zone" onclick="document.getElementById('videoFileInput').click()">
+                <div class="drop-icon">🎬</div>
+                <div class="drop-title">Select or Drop Video File for Analysis</div>
+                <div class="drop-sub">Supported: MP4, AVI, MOV, MKV (Sampled at 2 fps to preserve system RAM)</div>
+                <input type="file" name="video_file" id="videoFileInput" accept=".mp4,.avi,.mov,.mkv" style="display:none;" onchange="previewVideo(this)">
+            </div>
+            
+            <div id="videoSelectionBar" class="file-selection-bar" style="display: none;">
+                <span class="file-name" id="selectedVideoName">No video selected</span>
+                <button type="submit" class="btn-action btn-primary" id="btnAnalyzeVideo">
+                    <span>🎞️ Process Video Frames</span>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    {% if analyzed %}
+    <div class="results-section">
+        <div class="results-header">
+            <h3>Video Audit Report: <code>{{ filename }}</code></h3>
+            <div class="header-badges">
+                <span class="count-pill">Total Video Frames: {{ total_frames }}</span>
+                <span class="count-pill">Sampled AI Checks: {{ sampled_frames }}</span>
+                <span class="status-pill {% if violations %}status-red{% else %}status-green{% endif %}">
+                    Violations Flagged: {{ violations | length }}
+                </span>
+            </div>
+        </div>
+
+        {% if violations %}
+        <div class="timeline-container">
+            <h4>Flagged Violation Timestamps & Snapshots</h4>
+            <div class="violation-timeline-grid">
+                {% for v in violations %}
+                <div class="timeline-card">
+                    <div class="timeline-thumb">
+                        <img src="/{{ v.evidence_path }}" alt="Violation at {{ v.timestamp_sec }}s" loading="lazy">
+                        <span class="timeline-badge badge-{{ v.type.lower() }}">
+                            {{ v.type.replace('_', ' ') }}
+                        </span>
+                    </div>
+                    <div class="timeline-info">
+                        <div class="time-stamp">⏱️ Video Time: <strong>{{ v.timestamp_sec }} seconds</strong> (Frame #{{ v.frame_idx }})</div>
+                        <div class="missing-items">Missing PPE: <span class="text-red font-bold">{{ v.missing }}</span></div>
+                        <div class="logged-note">Recorded in SQLite database.</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <span class="empty-icon">🛡️</span>
+            <h3>100% PPE Compliance Detected</h3>
+            <p>No safety violations were found across the sampled frames in this footage.</p>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function previewVideo(input) {
+        if (input.files && input.files[0]) {
+            const fileName = input.files[0].name;
+            document.getElementById('selectedVideoName').textContent = "Selected: " + fileName;
+            document.getElementById('videoSelectionBar').style.display = 'flex';
+        }
+    }
+</script>
+{% endblock %}

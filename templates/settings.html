@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block title %}Model & Hardware Configuration | Smart PPE Detection{% endblock %}
+
+{% block content %}
+<div class="settings-container">
+    <div class="page-heading">
+        <h2>AI Model & ESP32 Hardware Configuration</h2>
+        <p>Inspect active neural network weights, calibrate spatial confidence thresholds, and test physical alarm pins.</p>
+    </div>
+
+    <div class="settings-grid">
+        <!-- Model Diagnostic Status Card -->
+        <div class="panel-card">
+            <div class="panel-header">
+                <h3>🧠 Active Neural Network Model Diagnostics</h3>
+            </div>
+            <div class="panel-body">
+                <div class="diagnostic-box {% if model_status.model_loaded %}diag-success{% else %}diag-warning{% endif %}">
+                    <div class="diag-status-line">
+                        <strong>Status:</strong> 
+                        {% if model_status.model_loaded %}
+                            <span class="text-green font-bold">✔ YOLO Weights Active & Ready</span>
+                        {% else %}
+                            <span class="text-amber font-bold">⚠️ Diagnostic Fallback / Simulation Active</span>
+                        {% endif %}
+                    </div>
+                    <div class="diag-details">
+                        <p><strong>Weights File:</strong> <code>{{ model_status.model_path }}</code></p>
+                        <p><strong>File Exists on Disk:</strong> {{ 'YES' if model_status.model_exists else 'NO (Please place best.pt in models/ directory)' }}</p>
+                        {% if model_status.classes %}
+                        <p><strong>Detected Classes in Model:</strong> <code>{{ model_status.classes | join(', ') }}</code></p>
+                        {% endif %}
+                        {% if model_status.load_error %}
+                        <p class="text-red"><strong>Engine Log:</strong> {{ model_status.load_error }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Model Setup Instructions Box -->
+                <div class="instruction-box">
+                    <h4>How to Obtain & Place a PPE YOLOv8 Model:</h4>
+                    <ol class="step-list">
+                        <li>
+                            <strong>Download Pretrained PPE Model:</strong> Download a trained <code>best.pt</code> from Roboflow Universe (e.g. <em>Worker Safety PPE Dataset</em>) or train using Ultralytics:
+                            <pre class="code-block">yolo detect train data=ppe.yaml model=yolov8n.pt epochs=50</pre>
+                        </li>
+                        <li>
+                            <strong>Place Weights File:</strong> Save your weights as:
+                            <code>smart-ppe-detection/models/best.pt</code>
+                        </li>
+                        <li>
+                            <strong>Restart Application:</strong> Restart <code>python app.py</code> to load the weights.
+                        </li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+
+        <!-- Calibration & Threshold Form -->
+        <div class="panel-card">
+            <div class="panel-header">
+                <h3>⚙️ Inference Calibration</h3>
+            </div>
+            <div class="panel-body">
+                <form method="POST" action="{{ url_for('settings') }}" class="settings-form">
+                    <div class="form-group">
+                        <label for="confRange">Detection Confidence Threshold: <span id="confValue">{{ conf }}</span></label>
+                        <input type="range" id="confRange" name="confidence" min="0.10" max="0.90" step="0.05" value="{{ conf }}" oninput="document.getElementById('confValue').textContent = this.value">
+                        <small class="form-help">Lower values increase sensitivity; higher values reduce false positives.</small>
+                    </div>
+
+                    <div class="form-group checkbox-group">
+                        <label>
+                            <input type="checkbox" name="simulation_mode" value="true" {% if model_status.simulation_mode %}checked{% endif %}>
+                            Enable Diagnostic Fallback Mode (Runs test detection even if weights file is absent)
+                        </label>
+                    </div>
+
+                    <div class="form-divider"></div>
+
+                    <h4>🔌 ESP32 Microcontroller Signal Test</h4>
+                    <p class="text-muted">Send an instant test pulse to your ESP32 serial port ({{ hw_status.port }} @ {{ hw_status.baud }} baud):</p>
+                    
+                    <div class="hw-test-buttons">
+                        <button type="button" class="btn-action btn-outline" onclick="sendHwSignal('COMPLIANT')">
+                            🟢 Test Green LED (PIN 18)
+                        </button>
+                        <button type="button" class="btn-action btn-danger" onclick="sendHwSignal('HELMET_VIOLATION')">
+                            🔴 Test Red LED & Buzzer (PIN 19 & 21)
+                        </button>
+                    </div>
+                    <div id="hwFeedback" class="hw-feedback-text"></div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn-action btn-primary">
+                            <span>Save Configuration</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    async function sendHwSignal(state) {
+        const feedback = document.getElementById('hwFeedback');
+        feedback.textContent = "Sending test signal: " + state + "...";
+        try {
+            const res = await fetch('/api/hardware/test', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ state: state })
+            });
+            const data = await res.json();
+            if (data.success) {
+                feedback.innerHTML = "<span class='text-green'>✔ Serial packet sent successfully to ESP32!</span>";
+            } else {
+                feedback.innerHTML = "<span class='text-amber'>ℹ Note: Serial port not physically opened. (ESP32 is optional; software works standalone).</span>";
+            }
+        } catch (e) {
+            feedback.innerHTML = "<span class='text-red'>Error sending test signal.</span>";
+        }
+    }
+</script>
+{% endblock %}
