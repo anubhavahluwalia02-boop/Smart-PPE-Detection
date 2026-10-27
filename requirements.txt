@@ -19,3 +19,4 @@ pyserial>=3.5
 # Environment Configuration
 python-dotenv>=1.0.0
 gunicorn
+inference-sdk
